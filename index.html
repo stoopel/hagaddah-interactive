@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>הגדה אינטראקטיבית | Interactive Haggadah</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="js-dos.css">
+</head>
+<body>
+  <!-- Overlay shown before game starts -->
+  <div id="overlay">
+    <div id="overlay-content">
+      <div id="logo-area">
+        <div class="menorah">🕎</div>
+        <h1>הגדה אינטראקטיבית</h1>
+        <h2>Interactive Haggadah</h2>
+        <p class="subtitle">JEM — Jewish Educational Media</p>
+      </div>
+      <div id="loading-area" style="display:none">
+        <p id="loading-label">מוריד... / Downloading...</p>
+        <div id="progress-track">
+          <div id="progress-bar"></div>
+        </div>
+        <p id="progress-text">0%</p>
+      </div>
+      <button id="start-btn" onclick="startGame()">▶ הפעל את המשחק / Start Game</button>
+    </div>
+  </div>
+
+  <!-- Game container — dir="ltr" is CRITICAL to fix RTL canvas offset bug in JS-DOS 8 -->
+  <div id="game-area">
+    <div id="controls-bar">
+      <span id="status-text">מוכן / Ready</span>
+      <span id="mouse-hint" style="display:none; color:#f0c96a; font-size:0.78rem">🖱️ לחץ על המסך לנעילת עכבר / Click game to capture mouse — Ctrl+F10 to release</span>
+      <button id="lock-btn" onclick="lockMouseOnly()" style="display:none">🖱️ נעל עכבר / Lock Mouse</button>
+      <button id="fs-btn" onclick="goFullscreen()">⛶ מסך מלא / Fullscreen</button>
+    </div>
+    <div id="jsdos-container" dir="ltr"></div>
+  </div>
+
+  <script src="js-dos.js"></script>
+  <script>
+    let gameCi = null;
+
+    // Number of chunks hagaddah.jsdos was split into
+    const CHUNKS = 12;
+
+    async function startGame() {
+      const btn = document.getElementById('start-btn');
+      const loadingArea = document.getElementById('loading-area');
+      const logoArea = document.getElementById('logo-area');
+
+      btn.style.display = 'none';
+      loadingArea.style.display = 'block';
+      logoArea.style.opacity = '0.5';
+
+      try {
+        // Fetch all chunks and merge them
+        const parts = [];
+        let totalLoaded = 0;
+
+        for (let i = 0; i < CHUNKS; i++) {
+          const idx = String(i).padStart(2, '0');
+          updateProgress(
+            Math.round((i / CHUNKS) * 85),
+            `מוריד חלק ${i+1}/${CHUNKS}... / Downloading part ${i+1}/${CHUNKS}...`
+          );
+
+          const res = await fetch(`hagaddah.part${idx}`);
+          if (!res.ok) throw new Error(`Chunk ${idx}: HTTP ${res.status}`);
+          const buf = await res.arrayBuffer();
+          parts.push(new Uint8Array(buf));
+          totalLoaded += buf.byteLength;
+        }
+
+        updateProgress(90, 'ממזג... / Merging...');
+        const totalLen = parts.reduce((s, c) => s + c.length, 0);
+        const merged = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const c of parts) { merged.set(c, offset); offset += c.length; }
+
+        updateProgress(95, 'מאתחל... / Initializing...');
+        const blob = new Blob([merged], { type: 'application/zip' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Switch to game view
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('game-area').style.display = 'flex';
+
+        // JS-DOS 8 — dosbox emulator with proper SDL/Emscripten autolock
+        // dir="ltr" on #jsdos-container fixes RTL canvas offset bug
+        gameCi = await Dos(document.getElementById('jsdos-container'), {
+          url: blobUrl,
+          emulatorFunction: 'dosbox',
+          pathPrefix: 'emulators/',
+        });
+
+        document.getElementById('status-text').textContent = '▶ פועל / Running';
+        document.getElementById('mouse-hint').style.display = 'inline';
+        document.getElementById('lock-btn').style.display = 'inline';
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading-label').textContent = '❌ ' + err.message;
+        btn.textContent = '🔄 נסה שוב / Retry';
+        btn.style.display = 'inline-block';
+        loadingArea.style.display = 'none';
+        logoArea.style.opacity = '1';
+      }
+    }
+
+    function updateProgress(pct, label) {
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-text').textContent = pct + '%';
+      document.getElementById('loading-label').textContent = label;
+    }
+
+    function goFullscreen() {
+      const container = document.getElementById('jsdos-container');
+      const canvas = container.querySelector('canvas');
+      if (container.requestFullscreen) {
+        container.requestFullscreen().then(() => {
+          if (canvas && canvas.requestPointerLock) canvas.requestPointerLock();
+        }).catch(console.warn);
+      } else if (canvas && canvas.requestPointerLock) {
+        canvas.requestPointerLock();
+      }
+    }
+
+    function lockMouseOnly() {
+      const canvas = document.querySelector('#jsdos-container canvas');
+      if (canvas && canvas.requestPointerLock) {
+        canvas.requestPointerLock();
+      }
+    }
+
+    document.addEventListener('pointerlockchange', () => {
+      const hint = document.getElementById('mouse-hint');
+      if (document.pointerLockElement) {
+        if (hint) hint.textContent = '🖱️ עכבר נעול — Esc לביטול / Mouse locked — Esc to release';
+      } else {
+        if (hint) hint.textContent = '🖱️ לחץ על המסך לנעילת עכבר / Click game to capture mouse — Ctrl+F10 to release';
+      }
+    });
+  </script>
+</body>
+</html>

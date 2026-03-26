@@ -1,0 +1,4 @@
+# Exclude the original large bundle — only parts go to GitHub
+hagaddah.jsdos
+node_modules/
+*.log
