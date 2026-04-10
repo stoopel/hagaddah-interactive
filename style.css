@@ -21,74 +21,81 @@ html, body {
   overflow: hidden;
 }
 
-/* ====== OVERLAY ====== */
-#overlay {
+/* ====== SPLASH SCREEN ====== */
+#splash-screen {
   position: fixed; inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-  background: radial-gradient(ellipse at center, #1a0e35 0%, #0d0a1a 60%, #000 100%);
+  background: url('splash-bg.jpg') no-repeat center center;
+  background-size: cover;
 }
 
-#overlay::before {
+#splash-screen::before {
   content: '';
   position: absolute; inset: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 20 L50 20 L38 30 L43 45 L30 35 L17 45 L22 30 L10 20 L25 20Z' fill='none' stroke='%23d4a84318' stroke-width='1'/%3E%3C/svg%3E");
-  opacity: 0.4;
+  background: radial-gradient(ellipse at center, rgba(13,10,26,0.3) 0%, rgba(0,0,0,0.8) 100%);
   pointer-events: none;
 }
 
-#overlay-content {
+.splash-content {
   text-align: center;
-  max-width: 540px;
+  max-width: 600px;
   width: 90%;
-  padding: 3rem 2rem;
-  background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(0,0,0,0.3));
-  border: 1px solid rgba(212, 168, 67, 0.2);
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 60px rgba(107, 47, 160, 0.3), 0 0 120px rgba(107, 47, 160, 0.1);
+  padding: 3.5rem 3rem;
+  background: rgba(30, 20, 40, 0.7);
+  border: 2px solid rgba(212, 168, 67, 0.6);
+  border-radius: 30px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 80px rgba(0,0,0,0.9), inset 0 0 20px rgba(212, 168, 67, 0.2);
   position: relative;
   transition: opacity 0.4s;
 }
 
-.menorah {
-  font-size: 4rem;
-  line-height: 1;
-  margin-bottom: 1rem;
-  filter: drop-shadow(0 0 20px rgba(212, 168, 67, 0.6));
-  animation: glow 2.5s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-  from { filter: drop-shadow(0 0 10px rgba(212, 168, 67, 0.4)); }
-  to   { filter: drop-shadow(0 0 30px rgba(212, 168, 67, 0.9)); }
-}
-
-h1 {
-  font-size: 2.2rem;
+.splash-title {
+  font-size: 3.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 0.3rem;
-  direction: rtl;
-}
-
-h2 {
-  font-size: 1.2rem;
-  font-weight: 300;
-  color: var(--text-dim);
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px var(--gold);
   margin-bottom: 0.5rem;
+  direction: rtl;
+  font-family: 'Heebo', sans-serif;
 }
 
-.subtitle {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin-bottom: 2rem;
-  letter-spacing: 0.1em;
+.splash-subtitle {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--gold-light);
+  margin-bottom: 2.5rem;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+  letter-spacing: 0.05em;
+}
+
+#splash-start-btn {
+  padding: 1.2rem 3rem;
+  font-size: 1.3rem;
+  font-family: inherit;
+  font-weight: 800;
+  color: #3b1b0b;
+  background: linear-gradient(135deg, #fcebb6, var(--gold));
+  border: 3px solid #ffeaa7;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 10px 30px rgba(212, 168, 67, 0.6), inset 0 -4px 10px rgba(0,0,0,0.2);
+  text-transform: uppercase;
+}
+
+#splash-start-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(212, 168, 67, 0.8), inset 0 -4px 10px rgba(0,0,0,0.2);
+  background: linear-gradient(135deg, #fff, var(--gold-light));
+}
+
+#splash-start-btn:active { 
+  transform: translateY(2px) scale(0.98); 
+  box-shadow: 0 5px 15px rgba(212, 168, 67, 0.4);
 }
 
 /* ====== LOADING ====== */
@@ -123,28 +130,7 @@ h2 {
   font-weight: 600;
 }
 
-/* ====== START BUTTON ====== */
-#start-btn {
-  margin-top: 1rem;
-  padding: 0.9rem 2.5rem;
-  font-size: 1.05rem;
-  font-family: inherit;
-  font-weight: 600;
-  color: var(--darker);
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 4px 20px rgba(212, 168, 67, 0.35);
-}
-
-#start-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(212, 168, 67, 0.55);
-}
-
-#start-btn:active { transform: translateY(0); }
+/* loading css overrides above */
 
 /* ====== GAME AREA ====== */
 #game-area {
@@ -185,7 +171,11 @@ h2 {
   align-items: center;
   justify-content: center;
   background: #000;
-  cursor: none; /* hide browser cursor — only DOSBox Windows cursor visible */
+}
+
+/* Hide cursor ONLY when DOSBox has captured the mouse (pointer lock active) */
+#jsdos-container.mouse-locked {
+  cursor: none;
 }
 
 #jsdos-canvas {

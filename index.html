@@ -8,32 +8,28 @@
   <link rel="stylesheet" href="js-dos.css">
 </head>
 <body>
-  <!-- Overlay shown before game starts -->
-  <div id="overlay">
-    <div id="overlay-content">
-      <div id="logo-area">
-        <div class="menorah">🕎</div>
-        <h1>הגדה אינטראקטיבית</h1>
-        <h2>Interactive Haggadah</h2>
-        <p class="subtitle">JEM — Jewish Educational Media</p>
-      </div>
-      <div id="loading-area" style="display:none">
-        <p id="loading-label">מוריד... / Downloading...</p>
-        <div id="progress-track">
-          <div id="progress-bar"></div>
-        </div>
-        <p id="progress-text">0%</p>
-      </div>
-      <button id="start-btn" onclick="startGame()">▶ הפעל את המשחק / Start Game</button>
+  <div id="splash-screen">
+    <div class="splash-content">
+      <h1 class="splash-title">הגדה אינטראקטיבית</h1>
+      <h2 class="splash-subtitle">Interactive Haggadah</h2>
+      <button id="splash-start-btn" onclick="startGame()">▶ התחל משחק / Play</button>
     </div>
   </div>
 
-  <!-- Game container — dir="ltr" is CRITICAL to fix RTL canvas offset bug in JS-DOS 8 -->
+  <div id="loading-area" style="display:none; position:fixed; z-index:99; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; text-align: center; color: white;">
+    <p id="loading-label">מוריד נתונים... / Downloading...</p>
+    <div id="progress-track"><div id="progress-bar"></div></div>
+    <p id="progress-text">0%</p>
+  </div>
+
   <div id="game-area">
     <div id="controls-bar">
       <span id="status-text">מוכן / Ready</span>
       <span id="mouse-hint" style="display:none; color:#f0c96a; font-size:0.78rem">🖱️ לחץ על המסך לנעילת עכבר / Click game to capture mouse — Ctrl+F10 to release</span>
       <button id="lock-btn" onclick="lockMouseOnly()" style="display:none">🖱️ נעל עכבר / Lock Mouse</button>
+      <button id="save-state-btn" onclick="saveState()" style="display:none; background:rgba(80,200,120,0.2); border:1px solid #50c878; color:#50c878; padding:0.25rem 0.7rem; border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:inherit">💾 Save State</button>
+      <button id="load-state-btn" onclick="document.getElementById('state-file-input').click()" style="display:none; background:rgba(100,160,255,0.2); border:1px solid #64a0ff; color:#64a0ff; padding:0.25rem 0.7rem; border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:inherit">📂 Load State</button>
+      <input type="file" id="state-file-input" accept=".state,.bin" style="display:none" onchange="loadStateFromFile(this)">
       <button id="fs-btn" onclick="goFullscreen()">⛶ מסך מלא / Fullscreen</button>
     </div>
     <div id="jsdos-container" dir="ltr"></div>
@@ -42,18 +38,48 @@
   <script src="js-dos.js"></script>
   <script>
     let gameCi = null;
+    const CHUNKS = 12;
+
+    // ══ CAPTURE INTERNAL ENGINE ════════════════════════════════════════════
+    // We must capture the internal CI to send backend events like 'hand_savestate'
+    (function watchEmulators() {
+      let _val = window.emulators;
+      function applyDosboxPatch(emuObj) {
+        if (!emuObj || emuObj.__patched) return;
+        emuObj.__patched = true;
+        Object.keys(emuObj).forEach(key => {
+          if (typeof emuObj[key] === 'function' && key !== '__patched') {
+            const _orig = emuObj[key];
+            emuObj[key] = async function(...args) {
+              const ci = await _orig.apply(this, args);
+              if (ci && !window._capturedCi) {
+                window._capturedCi = ci;
+              }
+              return ci;
+            };
+          }
+        });
+      }
+      if (_val) applyDosboxPatch(_val);
+      try {
+        Object.defineProperty(window, 'emulators', {
+          configurable: true,
+          get() { return _val; },
+          set(newVal) { _val = newVal; applyDosboxPatch(newVal); }
+        });
+      } catch(e) {}
+    })();
 
     // Number of chunks hagaddah.jsdos was split into
     const CHUNKS = 12;
 
     async function startGame() {
-      const btn = document.getElementById('start-btn');
+      const btn = document.getElementById('splash-start-btn');
+      const splash = document.getElementById('splash-screen');
       const loadingArea = document.getElementById('loading-area');
-      const logoArea = document.getElementById('logo-area');
-
-      btn.style.display = 'none';
+      if (btn) btn.style.display = 'none';
+      if (splash) splash.style.opacity = '0.5';
       loadingArea.style.display = 'block';
-      logoArea.style.opacity = '0.5';
 
       try {
         // Fetch all chunks and merge them
@@ -84,29 +110,31 @@
         const blob = new Blob([merged], { type: 'application/zip' });
         const blobUrl = URL.createObjectURL(blob);
 
-        // Switch to game view
-        document.getElementById('overlay').style.display = 'none';
+        splash.style.display = 'none';
         document.getElementById('game-area').style.display = 'flex';
 
-        // JS-DOS 8 — dosbox emulator with proper SDL/Emscripten autolock
-        // dir="ltr" on #jsdos-container fixes RTL canvas offset bug
+        // Initialize JS-DOS 8 using the merged blob URL
         gameCi = await Dos(document.getElementById('jsdos-container'), {
           url: blobUrl,
           emulatorFunction: 'dosbox',
           pathPrefix: 'emulators/',
+          autoStart: true,
         });
+        window.gameCi = gameCi; // expose globally for debugging
 
         document.getElementById('status-text').textContent = '▶ פועל / Running';
         document.getElementById('mouse-hint').style.display = 'inline';
         document.getElementById('lock-btn').style.display = 'inline';
-
+        
+        loadingArea.style.display = 'none';
       } catch (err) {
         console.error(err);
         document.getElementById('loading-label').textContent = '❌ ' + err.message;
-        btn.textContent = '🔄 נסה שוב / Retry';
-        btn.style.display = 'inline-block';
-        loadingArea.style.display = 'none';
-        logoArea.style.opacity = '1';
+        if (btn) {
+            btn.textContent = '🔄 נסה שוב / Retry';
+            btn.style.display = 'inline-block';
+        }
+        loadingArea.style.display = 'block';
       }
     }
 
@@ -130,19 +158,23 @@
 
     function lockMouseOnly() {
       const canvas = document.querySelector('#jsdos-container canvas');
-      if (canvas && canvas.requestPointerLock) {
-        canvas.requestPointerLock();
-      }
+      if (canvas && canvas.requestPointerLock) canvas.requestPointerLock();
     }
 
     document.addEventListener('pointerlockchange', () => {
       const hint = document.getElementById('mouse-hint');
+      const container = document.getElementById('jsdos-container');
       if (document.pointerLockElement) {
+        container.classList.add('mouse-locked');
         if (hint) hint.textContent = '🖱️ עכבר נעול — Esc לביטול / Mouse locked — Esc to release';
       } else {
+        container.classList.remove('mouse-locked');
         if (hint) hint.textContent = '🖱️ לחץ על המסך לנעילת עכבר / Click game to capture mouse — Ctrl+F10 to release';
       }
     });
+    // Removed window.onload auto-start so user can click to satisfy audio policies
+
+
   </script>
 </body>
 </html>

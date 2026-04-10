@@ -2,3 +2,6 @@
 hagaddah.jsdos
 node_modules/
 *.log
+*v13*
+*.jsdos
+*.zip
